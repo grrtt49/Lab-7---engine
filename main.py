@@ -8,37 +8,43 @@ import math
 pygame.init()
 size = [512, 512]
 
-def get_rotate_x(theta):
-    return np.array([
-        [1, 0, 0, 0],
-        [0, math.cos(theta), math.sin(theta), 0],
-        [0, -math.sin(theta), math.cos(theta), 0],
-        [0, 0, 0, 1]
-    ])
 
-def get_rotate_y(theta): 
-    return np.array([
-        [math.cos(theta), 0, -math.sin(theta), 0],
-        [0, 1, 0, 0],
-        [math.sin(theta), 0, math.cos(theta), 0],
-        [0, 0, 0, 1]
-    ])
+def get_rotate_x(theta):
+    return np.array(
+        [
+            [1, 0, 0, 0],
+            [0, math.cos(theta), -math.sin(theta), 0],
+            [0, math.sin(theta), math.cos(theta), 0],
+            [0, 0, 0, 1],
+        ]
+    )
+
+
+def get_rotate_y(theta):
+    return np.array(
+        [
+            [math.cos(theta), 0, math.sin(theta), 0],
+            [0, 1, 0, 0],
+            [-math.sin(theta), 0, math.cos(theta), 0],
+            [0, 0, 0, 1],
+        ]
+    )
+
 
 def get_rotate_z(theta):
-    return np.array([
-        [math.cos(theta), math.sin(theta), 0, 0],
-        [-math.sin(theta), math.cos(theta), 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ])
+    return np.array(
+        [
+            [math.cos(theta), -math.sin(theta), 0, 0],
+            [math.sin(theta), math.cos(theta), 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+        ]
+    )
+
 
 def get_translated(x, y, z):
-    return np.array([
-        [1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, 1, 0],
-        [x, y, z, 1]
-    ])
+    return np.array([[1, 0, 0, x], [0, 1, 0, y], [0, 0, 1, z], [0, 0, 0, 1]])
+
 
 class Point:
     def __init__(self, x, y):
@@ -51,7 +57,7 @@ class Point3D:
         self.x = x
         self.y = y
         self.z = z
-    
+
     def to_np_arr(self, extra=False):
         if extra:
             return np.array([self.x, self.y, self.z, 1])
@@ -60,28 +66,27 @@ class Point3D:
     def translated(self, pos):
         x, y, z = pos
         return self.to_np_arr(True) @ get_translated(x, y, z)
-    
+
     def rotate_x(self, theta):
         return self.to_np_arr(True) @ get_rotate_x(theta)
 
-    def rotate_y (self, theta):
+    def rotate_y(self, theta):
         return self.to_np_arr(True) @ get_rotate_y(theta)
-    
+
     def rotate_z(self, theta):
         return self.to_np_arr(True) @ get_rotate_z(theta)
-    
+
     def scale(self, n):
-        return self.to_np_arr(True) @ np.array([
-            [n, 0, 0, 0],
-            [0, n, 0, 0],
-            [0, 0, n, 0],
-            [0, 0, 0, 1]
-        ])
+        return self.to_np_arr(True) @ np.array(
+            [[n, 0, 0, 0], [0, n, 0, 0], [0, 0, n, 0], [0, 0, 0, 1]]
+        )
+
 
 class Line3D:
     def __init__(self, start, end):
         self.start = start
         self.end = end
+
 
 class TransformationStack:
     def __init__(self):
@@ -99,6 +104,7 @@ class TransformationStack:
     def get_current_matrix(self):
         return self.stack[-1]
 
+
 class Camera:
     def __init__(self, position, yaw):
         self.position = position.to_np_arr(True)
@@ -107,8 +113,8 @@ class Camera:
         self.right = np.array([1, 0, 0, 1])
         self.h_fov = math.pi / 4
         self.v_fov = self.h_fov * (size[0] / size[1])
-        self.near_plane = 0.1
-        self.far_plane = 10
+        self.near_plane = 1
+        self.far_plane = 100
         self.moving_speed = 0.3
         self.rotation_speed = 0.015
 
@@ -131,9 +137,9 @@ class Camera:
         if key[pygame.K_f]:
             self.position += self.up * self.moving_speed
         if key[pygame.K_q]:
-            self.camera_yaw(-self.rotation_speed)
-        if key[pygame.K_e]:
             self.camera_yaw(self.rotation_speed)
+        if key[pygame.K_e]:
+            self.camera_yaw(-self.rotation_speed)
         if key[pygame.K_u]:
             print(self.position)
             print(self.angle_yaw)
@@ -158,27 +164,19 @@ class Camera:
 
     def camera_matrix(self):
         self.camera_update_axis()
-        return self.translate_matrix() @ self.rotate_matrix()
+        return self.rotate_matrix() @ self.translate_matrix()
 
     def translate_matrix(self):
         x, y, z, w = self.position
-        return np.array([
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [-x, -y, -z, 1]
-        ])
+        return np.array([[1, 0, 0, -x], [0, 1, 0, -y], [0, 0, 1, -z], [0, 0, 0, 1]])
 
     def rotate_matrix(self):
         rx, ry, rz, w = self.right
         fx, fy, fz, w = self.forward
         ux, uy, uz, w = self.up
-        return np.array([
-            [rx, ux, fx, 0],
-            [ry, uy, fy, 0],
-            [rz, uz, fz, 0],
-            [0, 0, 0, 1]
-        ])
+        return np.array(
+            [[rx, ry, rz, 0], [ux, uy, uz, 0], [fx, fy, fz, 0], [0, 0, 0, 1]]
+        )
 
 
 def loadHouse():
@@ -275,6 +273,7 @@ def loadTire():
 
     return tire
 
+
 # Define the colors we will use in RGB format
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -294,7 +293,7 @@ house_list = loadHouse()
 car_list = loadCar()
 tire_list = loadTire()
 
-camera = Camera(Point3D(105.0, 40.0, 105.0), 0.40079632679489985)
+camera = Camera(Point3D(105.0, 40.0, 105.0), -0.4)
 transformationStack = TransformationStack()
 
 NEAR = camera.near_plane
@@ -304,73 +303,126 @@ LEFT = -RIGHT
 TOP = math.tan(camera.v_fov / 2)
 BOTTOM = -TOP
 
-m00 = 2 / (RIGHT - LEFT)
-m11 = 2 / (TOP - BOTTOM)
-m22 = (FAR + NEAR) / (FAR - NEAR)
-m32 = -2 * NEAR * FAR / (FAR - NEAR)
+zoomx = 2 / (RIGHT - LEFT)
+zoomy = 2 / (TOP - BOTTOM)
+n1 = (FAR + NEAR) / (FAR - NEAR)
+n2 = -2 * NEAR * FAR / (FAR - NEAR)
 
 wheel_rotation = 0
 car_pos = 0
 
-projection_matrix = np.array([
-    [m00, 0, 0, 0],
-    [0, m11, 0, 0],
-    [0, 0, m22, 1],
-    [0, 0, m32, 0]
-])
+clip_matrix = np.array(
+    [[zoomx, 0, 0, 0], [0, zoomy, 0, 0], [0, 0, n1, n2], [0, 0, 1, 0]]
+)
 
-to_screen_matrix = np.array([
-    [size[0] // 2, 0, size[0] // 2, 0],
-    [0, -size[1] // 2, size[1] // 2, 0],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
-])
+to_screen_matrix = np.array(
+    [
+        [size[0] // 2, 0, size[0] // 2, 0],
+        [0, -size[1] // 2, size[1] // 2, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1],
+    ]
+)
 
-def pushDrawing(func, x=0, y=0, z=0, angle=0, rx=False, ry=False, rz=False): 
+
+def pushDrawing(func, x=0, y=0, z=0, angle=0, rx=False, ry=False, rz=False, debug=False):
     transformationStack.push()
-    transformationStack.stack[-1] = get_translated(x, y, z) @ transformationStack.stack[-1]
+    transformationStack.stack[-1] = transformationStack.stack[-1] @ get_translated(
+        x, y, z
+    )
     if rx:
-        transformationStack.stack[-1] = get_rotate_x(angle) @ transformationStack.stack[-1]
+        transformationStack.stack[-1] = transformationStack.stack[-1] @ get_rotate_x(
+            angle
+        )
     if ry:
-        transformationStack.stack[-1] = get_rotate_y(angle) @ transformationStack.stack[-1]
+        transformationStack.stack[-1] = transformationStack.stack[-1] @ get_rotate_y(
+            angle
+        )
     if rz:
-        transformationStack.stack[-1] = get_rotate_z(angle) @ transformationStack.stack[-1]
-    
-    func()
+        transformationStack.stack[-1] = transformationStack.stack[-1] @ get_rotate_z(
+            angle
+        )
+
+    if (debug):
+        func(debug)
+    else:
+        func()
 
     transformationStack.pop()
 
-def drawObject(lines, color=BLUE):
+
+def drawObject(lines, color=BLUE, debug=False):
     camera_matrix = camera.camera_matrix()
-    
+
     for s in lines:
+        # convert to 4D homogeneous coordinates
         start = s.start.to_np_arr(True)
         end = s.end.to_np_arr(True)
-        start_projected = start @ transformationStack.stack[-1] @ camera_matrix @ projection_matrix
-        end_projected = end @ transformationStack.stack[-1] @ camera_matrix @ projection_matrix
 
-        start_projected /= start_projected[3]
-        end_projected /= end_projected[3]
+        # transformationStack.stack[-1] is using a matrix stack to put things from model space to world space
+        # camera_matrix is the single matrix that converts from world to camera coordinates by using a translation and rotation matrix
+        # clip_matrix is created at startup using the camera's near and far clipping planes and the field of view
+        start_clipped = clip_matrix @ camera_matrix @ transformationStack.stack[-1] @ start
+        end_clipped = clip_matrix @ camera_matrix @ transformationStack.stack[-1] @ end
+        start_w = start_clipped[3]
+        end_w = end_clipped[3]
+        
+        # apply perspective by dividing by w
+        start_clipped /= start_w
+        end_clipped /= end_w
 
-        start_screen = start_projected @ to_screen_matrix 
-        end_screen = end_projected @ to_screen_matrix 
+        if (debug):
+            print(start_clipped)
+            print(end_clipped)
+            debug = False
 
-        # if (start_screen[0] > 0 and start_screen[1] > 0 and end_screen[0] > 0 and end_screen[1] > 0):
-        pygame.draw.line(screen, color, (start_screen[0], start_screen[1]), (end_screen[0], end_screen[1]))
+        # # Check if both endpoints fail the same view frustum test
+        # if ((start_clipped[0] < -1 and end_clipped[0] < -1) or (start_clipped[0] > 1 and end_clipped[0] > 1)) \
+        #         or ((start_clipped[1] < -1 and end_clipped[1] < -1) or (start_clipped[1] > 1 and end_clipped[1] > 1)) \
+        #         or ((start_clipped[2] < -1 and end_clipped[2] < -1) or (start_clipped[2] > 1 and end_clipped[2] > 1)):
+        #     continue  # Reject the line
+            
+        # # Check if either endpoint fails the near plane test
+        if start_clipped[2] < -1 or end_clipped[2] < -1:
+            continue  # Reject the line
 
-def drawHouse():
-    drawObject(house_list, RED)
+        # to_screen_matrix is a viewport transformation using the screen size initialized at startup
+        start_screen = start_clipped @ to_screen_matrix
+        end_screen = end_clipped @ to_screen_matrix
+
+        # drawing the line to the screen
+        pygame.draw.line(
+            screen,
+            color,
+            (start_screen[0], start_screen[1]),
+            (end_screen[0], end_screen[1]),
+        )
+
+
+def drawHouse(debug=False):
+    drawObject(house_list, RED, debug)
+
 
 def drawCar():
     drawObject(car_list, GREEN)
     tire_spacing = 2
-    pushDrawing(drawTire, tire_spacing, 0, tire_spacing, wheel_rotation, False, False, True)
-    pushDrawing(drawTire, -tire_spacing, 0, tire_spacing, wheel_rotation, False, False, True)
-    pushDrawing(drawTire, tire_spacing, 0, -tire_spacing, wheel_rotation, False, False, True)
-    pushDrawing(drawTire, -tire_spacing, 0, -tire_spacing, wheel_rotation, False, False, True)
+    pushDrawing(
+        drawTire, tire_spacing, 0, tire_spacing, wheel_rotation, False, False, True
+    )
+    pushDrawing(
+        drawTire, -tire_spacing, 0, tire_spacing, wheel_rotation, False, False, True
+    )
+    pushDrawing(
+        drawTire, tire_spacing, 0, -tire_spacing, wheel_rotation, False, False, True
+    )
+    pushDrawing(
+        drawTire, -tire_spacing, 0, -tire_spacing, wheel_rotation, False, False, True
+    )
+
 
 def drawTire():
     drawObject(tire_list)
+
 
 time_since_last_action = 0
 
@@ -403,15 +455,19 @@ while not done:
     houseMargin = 20
 
     # drawObject(house_list)
-    pushDrawing(drawHouse, 0, 0, houseMargin * 3, math.pi/2, False, True)
-    pushDrawing(drawHouse, 0, 0, houseMargin * 2, math.pi/2, False, True)
-    pushDrawing(drawHouse, 0, 0, houseMargin, math.pi/2, False, True)
-    pushDrawing(drawHouse, houseMargin, 0, 0)
-    pushDrawing(drawHouse, houseMargin * 2, 0, 0)
-    pushDrawing(drawHouse, houseMargin * 3, 0, houseMargin, -math.pi/2, False, True)
-    pushDrawing(drawHouse, houseMargin * 3, 0, houseMargin * 2, -math.pi/2, False, True)
-    pushDrawing(drawHouse, houseMargin * 3, 0, houseMargin * 3, -math.pi/2, False, True)
-    pushDrawing(drawCar, 40, 0, 40 + car_pos, math.pi/2, False, True)
+    # pushDrawing(drawHouse, 0, 0, houseMargin * 3, math.pi / 2, False, True)
+    # pushDrawing(drawHouse, 0, 0, houseMargin * 2, math.pi / 2, False, True)
+    # pushDrawing(drawHouse, 0, 0, houseMargin, math.pi / 2, False, True)
+    # pushDrawing(drawHouse, houseMargin, 0, 0)
+    # pushDrawing(drawHouse, houseMargin * 2, 0, 0)
+    # pushDrawing(drawHouse, houseMargin * 3, 0, houseMargin, -math.pi / 2, False, True)
+    # pushDrawing(
+    #     drawHouse, houseMargin * 3, 0, houseMargin * 2, -math.pi / 2, False, True
+    # )
+    pushDrawing(
+        drawHouse, houseMargin * 3, 0, houseMargin * 3, -math.pi / 2, False, True, False, True
+    )
+    pushDrawing(drawCar, 40, 0, 40 + car_pos, math.pi / 2, False, True)
 
     # Go ahead and update the screen with what we've drawn.
     # This MUST happen after all the other drawing commands.
