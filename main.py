@@ -109,12 +109,12 @@ class Camera:
     def __init__(self, position, yaw):
         self.position = position.to_np_arr(True)
         self.forward = np.array([0, 0, 1, 1])
-        self.up = np.array([0, -1, 0, 1])
+        self.up = np.array([0, 1, 0, 1])
         self.right = np.array([1, 0, 0, 1])
         self.h_fov = math.pi / 4
         self.v_fov = self.h_fov * (size[0] / size[1])
-        self.near_plane = 1
-        self.far_plane = 100
+        self.near_plane = 0.01
+        self.far_plane = 200
         self.moving_speed = 0.3
         self.rotation_speed = 0.015
 
@@ -125,17 +125,17 @@ class Camera:
     def control(self):
         key = pygame.key.get_pressed()
         if key[pygame.K_w]:
-            self.position -= self.forward * self.moving_speed
-        if key[pygame.K_s]:
             self.position += self.forward * self.moving_speed
+        if key[pygame.K_s]:
+            self.position -= self.forward * self.moving_speed
         if key[pygame.K_a]:
-            self.position += self.right * self.moving_speed
-        if key[pygame.K_d]:
             self.position -= self.right * self.moving_speed
+        if key[pygame.K_d]:
+            self.position += self.right * self.moving_speed
         if key[pygame.K_r]:
-            self.position -= self.up * self.moving_speed
-        if key[pygame.K_f]:
             self.position += self.up * self.moving_speed
+        if key[pygame.K_f]:
+            self.position -= self.up * self.moving_speed
         if key[pygame.K_q]:
             self.camera_yaw(self.rotation_speed)
         if key[pygame.K_e]:
@@ -152,7 +152,7 @@ class Camera:
 
     def axisIdentity(self):
         self.forward = np.array([0, 0, 1, 1])
-        self.up = np.array([0, -1, 0, 1])
+        self.up = np.array([0, 1, 0, 1])
         self.right = np.array([1, 0, 0, 1])
 
     def camera_update_axis(self):
@@ -161,6 +161,10 @@ class Camera:
         self.forward = self.forward @ rotate
         self.right = self.right @ rotate
         self.up = self.up @ rotate
+
+        self.forward /= self.forward[3]
+        self.right /= self.right[3]
+        self.up /= self.up[3]
 
     def camera_matrix(self):
         self.camera_update_axis()
@@ -293,7 +297,7 @@ house_list = loadHouse()
 car_list = loadCar()
 tire_list = loadTire()
 
-camera = Camera(Point3D(105.0, 40.0, 105.0), -0.4)
+camera = Camera(Point3D(118.0, 25.3, 110.4), -29.15)
 transformationStack = TransformationStack()
 
 NEAR = camera.near_plane
@@ -325,7 +329,7 @@ to_screen_matrix = np.array(
 )
 
 
-def pushDrawing(func, x=0, y=0, z=0, angle=0, rx=False, ry=False, rz=False, debug=False):
+def pushDrawing(func, x=0, y=0, z=0, angle=0, rx=False, ry=False, rz=False):
     transformationStack.push()
     transformationStack.stack[-1] = transformationStack.stack[-1] @ get_translated(
         x, y, z
@@ -343,15 +347,12 @@ def pushDrawing(func, x=0, y=0, z=0, angle=0, rx=False, ry=False, rz=False, debu
             angle
         )
 
-    if (debug):
-        func(debug)
-    else:
-        func()
+    func()
 
     transformationStack.pop()
 
 
-def drawObject(lines, color=BLUE, debug=False):
+def drawObject(lines, color=BLUE):
     camera_matrix = camera.camera_matrix()
 
     for s in lines:
@@ -371,18 +372,13 @@ def drawObject(lines, color=BLUE, debug=False):
         start_clipped /= start_w
         end_clipped /= end_w
 
-        if (debug):
-            print(start_clipped)
-            print(end_clipped)
-            debug = False
-
-        # # Check if both endpoints fail the same view frustum test
-        # if ((start_clipped[0] < -1 and end_clipped[0] < -1) or (start_clipped[0] > 1 and end_clipped[0] > 1)) \
-        #         or ((start_clipped[1] < -1 and end_clipped[1] < -1) or (start_clipped[1] > 1 and end_clipped[1] > 1)) \
-        #         or ((start_clipped[2] < -1 and end_clipped[2] < -1) or (start_clipped[2] > 1 and end_clipped[2] > 1)):
-        #     continue  # Reject the line
+        # # Check if both endpoints fail the view frustum test
+        if ((start_clipped[0] < -1 or end_clipped[0] < -1) and (start_clipped[0] > 1 or end_clipped[0] > 1)) \
+                or ((start_clipped[1] < -1 or end_clipped[1] < -1) and (start_clipped[1] > 1 or end_clipped[1] > 1)) \
+                or ((start_clipped[2] > 1 and end_clipped[2] > 1)):
+            continue  # Reject the line
             
-        # # Check if either endpoint fails the near plane test
+        # Check if either endpoint fails the near plane test
         if start_clipped[2] < -1 or end_clipped[2] < -1:
             continue  # Reject the line
 
@@ -391,16 +387,17 @@ def drawObject(lines, color=BLUE, debug=False):
         end_screen = end_clipped @ to_screen_matrix
 
         # drawing the line to the screen
+        CENTER_SCREEN = size[0] / 2
         pygame.draw.line(
             screen,
             color,
-            (start_screen[0], start_screen[1]),
-            (end_screen[0], end_screen[1]),
+            (start_screen[0] + CENTER_SCREEN, start_screen[1] + CENTER_SCREEN),
+            (end_screen[0] + CENTER_SCREEN, end_screen[1] + CENTER_SCREEN),
         )
 
 
-def drawHouse(debug=False):
-    drawObject(house_list, RED, debug)
+def drawHouse():
+    drawObject(house_list, RED)
 
 
 def drawCar():
@@ -454,18 +451,17 @@ while not done:
 
     houseMargin = 20
 
-    # drawObject(house_list)
-    # pushDrawing(drawHouse, 0, 0, houseMargin * 3, math.pi / 2, False, True)
-    # pushDrawing(drawHouse, 0, 0, houseMargin * 2, math.pi / 2, False, True)
-    # pushDrawing(drawHouse, 0, 0, houseMargin, math.pi / 2, False, True)
-    # pushDrawing(drawHouse, houseMargin, 0, 0)
-    # pushDrawing(drawHouse, houseMargin * 2, 0, 0)
-    # pushDrawing(drawHouse, houseMargin * 3, 0, houseMargin, -math.pi / 2, False, True)
-    # pushDrawing(
-    #     drawHouse, houseMargin * 3, 0, houseMargin * 2, -math.pi / 2, False, True
-    # )
+    pushDrawing(drawHouse, 0, 0, houseMargin * 3, math.pi / 2, False, True)
+    pushDrawing(drawHouse, 0, 0, houseMargin * 2, math.pi / 2, False, True)
+    pushDrawing(drawHouse, 0, 0, houseMargin, math.pi / 2, False, True)
+    pushDrawing(drawHouse, houseMargin, 0, 0)
+    pushDrawing(drawHouse, houseMargin * 2, 0, 0)
+    pushDrawing(drawHouse, houseMargin * 3, 0, houseMargin, -math.pi / 2, False, True)
     pushDrawing(
-        drawHouse, houseMargin * 3, 0, houseMargin * 3, -math.pi / 2, False, True, False, True
+        drawHouse, houseMargin * 3, 0, houseMargin * 2, -math.pi / 2, False, True
+    )
+    pushDrawing(
+        drawHouse, houseMargin * 3, 0, houseMargin * 3, -math.pi / 2, False, True
     )
     pushDrawing(drawCar, 40, 0, 40 + car_pos, math.pi / 2, False, True)
 
