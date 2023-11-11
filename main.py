@@ -175,9 +175,12 @@ class Camera:
         return np.array([[1, 0, 0, -x], [0, 1, 0, -y], [0, 0, 1, -z], [0, 0, 0, 1]])
 
     def rotate_matrix(self):
-        rx, ry, rz, w = self.right
-        fx, fy, fz, w = self.forward
-        ux, uy, uz, w = self.up
+        e3 = ((self.right - self.position) / np.linalg.norm(self.right - self.position))
+        e1 = ((e3 - self.up) / np.linalg.norm(e3 - self.up))
+        e2 = ((e1 - e3) / np.linalg.norm(e1 - e3))
+        rx, ry, rz, w = e1
+        fx, fy, fz, w = e2
+        ux, uy, uz, w = e3
         return np.array(
             [[rx, ry, rz, 0], [ux, uy, uz, 0], [fx, fy, fz, 0], [0, 0, 0, 1]]
         )
@@ -373,21 +376,21 @@ def drawObject(lines, color=BLUE):
         end_clipped /= end_w
 
         # # Check if both endpoints fail the view frustum test
-        if ((start_clipped[0] < -1 or end_clipped[0] < -1) and (start_clipped[0] > 1 or end_clipped[0] > 1)) \
-                or ((start_clipped[1] < -1 or end_clipped[1] < -1) and (start_clipped[1] > 1 or end_clipped[1] > 1)) \
-                or ((start_clipped[2] > 1 and end_clipped[2] > 1)):
-            continue  # Reject the line
+        # if ((start_clipped[0] < -1 or end_clipped[0] < -1) and (start_clipped[0] > 1 or end_clipped[0] > 1)) \
+        #         or ((start_clipped[1] < -1 or end_clipped[1] < -1) and (start_clipped[1] > 1 or end_clipped[1] > 1)) \
+        #         or ((start_clipped[2] > 1 and end_clipped[2] > 1)):
+        #     continue  # Reject the line
             
-        # Check if either endpoint fails the near plane test
-        if start_clipped[2] < -1 or end_clipped[2] < -1:
-            continue  # Reject the line
+        # # Check if either endpoint fails the near plane test
+        # if start_clipped[2] < -1 or end_clipped[2] < -1:
+        #     continue  # Reject the line
 
         # to_screen_matrix is a viewport transformation using the screen size initialized at startup
         start_screen = start_clipped @ to_screen_matrix
         end_screen = end_clipped @ to_screen_matrix
 
         # drawing the line to the screen
-        CENTER_SCREEN = size[0] / 2
+        CENTER_SCREEN = 0 #size[0] / 2
         pygame.draw.line(
             screen,
             color,
